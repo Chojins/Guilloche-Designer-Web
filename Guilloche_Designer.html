@@ -1,48 +1,76 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Guilloche Pattern Generator</title>
-    <style>
-        .container {
-            display: flex;
-            flex-direction: row;
-            align-items: flex-start;
-        }
-        .controls {
-            display: flex;
-            flex-direction: column;
-            width: 200px;
-            margin-right: 20px;
-        }
-        .control-group {
-            display: flex;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        .control-group label {
-            width: 70px;
-            font-size: 0.9rem;
-        }
-        .control-group input {
-            width: 60px;
-        }
-        .control-group button {
-            margin-left: 5px;
-        }
-        canvas {
-            border: 1px solid black;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guilloche Pattern Generator</title>
+<style>
+    body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin: 0;
+        font-family: Arial, sans-serif;
+    }
+
+    h1 {
+        width: 100%;
+        text-align: center;
+        margin: 20px 0;
+        font-size: 2em;
+    }
+
+    .container {
+        display: flex;
+        align-items: flex-start; /* Aligns controls to the top of the canvas */
+        gap: 20px;
+        width: 90%;
+    }
+
+    .controls {
+        display: flex;
+        flex-direction: column;
+        width: 300px;
+        max-width: 300px;
+    }
+
+    .control-group {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .control-group label {
+        width: 120px;
+    }
+
+    .control-group input {
+        width: 60px;
+        margin-right: 5px;
+    }
+
+    .control-group button {
+        margin: 0 2px;
+    }
+
+    #canvasContainer {
+        flex: 1;
+    }
+
+    /* Style for the canvas */
+    #patternCanvas {
+        border: 1px solid #ccc;
+    }
+
+</style>
 </head>
 <body>
-    <div class="container">
-        <!-- Left controls section -->
-        <div class="controls">
-            <h1>Guilloche Pattern Generator</h1>
-        
-            <div class="control-group">
+
+<h1>Guilloche Pattern Generator</h1>
+
+<div class="container">
+    <div class="controls">
+        <div class="control-group">
                 <label for="m1centerx">M1 center x:</label>
                 <input type="number" id="m1centerx" value="0" step="1" />
                 <button onmousedown="startAdjusting('m1centerx', 1)" onmouseup="stopAdjusting()" onmouseleave="stopAdjusting()">+</button>
@@ -130,10 +158,10 @@
             <button id="generateButton" onclick="generatePattern()">Generate Pattern</button>
             <button id="saveButton">Save SVG</button>
         </div>
-        
-
-        <!-- Right canvas section -->
-        <canvas id="patternCanvas" width="750" height="590"></canvas>
+    
+        <div id="canvasContainer">
+            <canvas id="patternCanvas" width="800" height="600"></canvas>
+        </div>
     </div>
 
     <script>
