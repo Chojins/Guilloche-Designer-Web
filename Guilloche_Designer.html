@@ -5,64 +5,199 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Guilloche Pattern Generator</title>
     <style>
-        body { font-family: Arial, sans-serif; }
-        .container { display: flex; flex-direction: column; align-items: center; }
-        canvas { border: 1px solid black; }
+        .container {
+            display: flex;
+            flex-direction: row;
+            align-items: flex-start;
+        }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            width: 200px;
+            margin-right: 20px;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .control-group label {
+            width: 70px;
+            font-size: 0.9rem;
+        }
+        .control-group input {
+            width: 60px;
+        }
+        .control-group button {
+            margin-left: 5px;
+        }
+        canvas {
+            border: 1px solid black;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Guilloche Pattern Generator</h1>
+        <!-- Left controls section -->
+        <div class="controls">
+            <h1>Guilloche Pattern Generator</h1>
+        
+            <div class="control-group">
+                <label for="m1centerx">M1 center x:</label>
+                <input type="number" id="m1centerx" value="0" step="1" />
+                <button onmousedown="startAdjusting('m1centerx', 1)" onmouseup="stopAdjusting()" onmouseleave="stopAdjusting()">+</button>
+                <button onmousedown="startAdjusting('m1centerx', -1)" onmouseup="stopAdjusting()" onmouseleave="stopAdjusting()">-</button>
+            </div>
+            <div class="control-group">
+                <label for="m1centery">M1 center y:</label>
+                <input type="number" id="m1centery" value="600" step="1" />
+                <button onmousedown="startAdjusting('m1centery', 1)" onmouseup="stopAdjusting()" onmouseleave="stopAdjusting()">+</button>
+                <button onmousedown="startAdjusting('m1centery', -1)" onmouseup="stopAdjusting()" onmouseleave="stopAdjusting()">-</button>
+            </div>
+            <div class="control-group">
+                <label for="M1Period">M1 Period:</label>
+                <input type="number" id="M1Period" value="299" step="1" />
+                <button onmousedown="startAdjusting('M1Period', 1)" onmouseup="stopAdjusting()" onmouseleave="stopAdjusting()">+</button>
+                <button onmousedown="startAdjusting('M1Period', -1)" onmouseup="stopAdjusting()" onmouseleave="stopAdjusting()">-</button>
+            </div>
+            <div class="control-group">
+                <label for="m2centerx">M2 center x:</label>
+                <input type="number" id="m2centerx" value="210" step="1" />
+                <button onmousedown="startAdjusting('m2centerx', 1)" onmouseup="stopAdjusting()" onmouseleave="stopAdjusting()">+</button>
+                <button onmousedown="startAdjusting('m2centerx', -1)" onmouseup="stopAdjusting()" onmouseleave="stopAdjusting()">-</button>
+            </div>
+            <div class="control-group">
+                <label for="m2centery">M2 center y:</label>
+                <input type="number" id="m2centery" value="600" step="1" />
+                <button onmousedown="startAdjusting('m2centery', 1)" onmouseup="stopAdjusting()" onmouseleave="stopAdjusting()">+</button>
+                <button onmousedown="startAdjusting('m2centery', -1)" onmouseup="stopAdjusting()" onmouseleave="stopAdjusting()">-</button>
+            </div>
+            <div class="control-group">
+                <label for="M2Period">M2 Period:</label>
+                <input type="number" id="M2Period" value="302" step="1" />
+                <button onmousedown="startAdjusting('M2Period', 1)" onmouseup="stopAdjusting()" onmouseleave="stopAdjusting()">+</button>
+                <button onmousedown="startAdjusting('M2Period', -1)" onmouseup="stopAdjusting()" onmouseleave="stopAdjusting()">-</button>
+            </div>
+            <div class="control-group">
+                <label for="m3centerx">M3 center x:</label>
+                <input type="number" id="m3centerx" value="0" step="1" />
+                <button onmousedown="startAdjusting('m3centerx', 1)" onmouseup="stopAdjusting()" onmouseleave="stopAdjusting()">+</button>
+                <button onmousedown="startAdjusting('m3centerx', -1)" onmouseup="stopAdjusting()" onmouseleave="stopAdjusting()">-</button>
+            </div>
+            <div class="control-group">
+                <label for="m3centery">M3 center y:</label>
+                <input type="number" id="m3centery" value="260" step="1" />
+                <button onmousedown="startAdjusting('m3centery', 1)" onmouseup="stopAdjusting()" onmouseleave="stopAdjusting()">+</button>
+                <button onmousedown="startAdjusting('m3centery', -1)" onmouseup="stopAdjusting()" onmouseleave="stopAdjusting()">-</button>
+            </div>
+            <div class="control-group">
+                <label for="M3Period">M3 Period:</label>
+                <input type="number" id="M3Period" value="600" step="1" />
+                <button onmousedown="startAdjusting('M3Period', 1)" onmouseup="stopAdjusting()" onmouseleave="stopAdjusting()">+</button>
+                <button onmousedown="startAdjusting('M3Period', -1)" onmouseup="stopAdjusting()" onmouseleave="stopAdjusting()">-</button>
+            </div>
+            <div class="control-group">
+                <label for="Iterations">Iterations:</label>
+                <input type="number" id="Iterations" value="20000" step="10" />
+                <button onmousedown="startAdjusting('Iterations', 10)" onmouseup="stopAdjusting()" onmouseleave="stopAdjusting()">+</button>
+                <button onmousedown="startAdjusting('Iterations', -10)" onmouseup="stopAdjusting()" onmouseleave="stopAdjusting()">-</button>
+            </div>
+            <div class="control-group">
+                <label for="aLength">aLength:</label>
+                <input type="number" id="aLength" value="30" />
+                <button onmousedown="startAdjusting('aLength', 1)" onmouseup="stopAdjusting()" onmouseleave="stopAdjusting()">+</button>
+                <button onmousedown="startAdjusting('aLength', -1)" onmouseup="stopAdjusting()" onmouseleave="stopAdjusting()">-</button>
+            </div>
+            <div class="control-group">
+                <label for="bLength">bLength:</label>
+                <input type="number" id="bLength" value="340" />
+                <button onmousedown="startAdjusting('bLength', 1)" onmouseup="stopAdjusting()" onmouseleave="stopAdjusting()">+</button>
+                <button onmousedown="startAdjusting('bLength', -1)" onmouseup="stopAdjusting()" onmouseleave="stopAdjusting()">-</button>
+            </div>
+            <div class="control-group">
+                <label for="cLength">cLength:</label>
+                <input type="number" id="cLength" value="400" />
+                <button onmousedown="startAdjusting('cLength', 1)" onmouseup="stopAdjusting()" onmouseleave="stopAdjusting()">+</button>
+                <button onmousedown="startAdjusting('cLength', -1)" onmouseup="stopAdjusting()" onmouseleave="stopAdjusting()">-</button>
+            </div>
+            <div class="control-group">
+                <label for="dLength">dLength:</label>
+                <input type="number" id="dLength" value="30" />
+                <button onmousedown="startAdjusting('dLength', 1)" onmouseup="stopAdjusting()" onmouseleave="stopAdjusting()">+</button>
+                <button onmousedown="startAdjusting('dLength', -1)" onmouseup="stopAdjusting()" onmouseleave="stopAdjusting()">-</button>
+            </div>
+        
+            <button id="generateButton" onclick="generatePattern()">Generate Pattern</button>
+            <button id="saveButton">Save SVG</button>
+        </div>
+        
 
-        <div>
-            <label for="M1Period">M1 Period:</label>
-            <input type="number" id="M1Period" value="1" step="0.1" />
-        </div>
-        <div>
-            <label for="M2Period">M2 Period:</label>
-            <input type="number" id="M2Period" value="1" step="0.1" />
-        </div>
-        <div>
-            <label for="M3Period">M3 Period:</label>
-            <input type="number" id="M3Period" value="1" step="0.1" />
-        </div>
-        <div>
-            <label for="aLength">M1 Radius:</label>
-            <input type="number" id="aLength" value="100" />
-        </div>
-        <div>
-            <label for="bLength">Link Length:</label>
-            <input type="number" id="bLength" value="200" />
-        </div>
-        <div>
-            <label for="cLength">Link Length:</label>
-            <input type="number" id="cLength" value="150" />
-        </div>
-        <div>
-            <label for="M2Length">M2 Radius:</label>
-            <input type="number" id="M2Length" value="50" />
-        </div>
-        <button id="generateButton">Generate Pattern</button>
-
-        <canvas id="patternCanvas" width="500" height="500"></canvas>
-
-        <button id="saveButton">Save SVG</button>
+        <!-- Right canvas section -->
+        <canvas id="patternCanvas" width="750" height="590"></canvas>
     </div>
 
     <script>
         const canvas = document.getElementById("patternCanvas");
         const ctx = canvas.getContext("2d");
 
+        let offsetX = 0, offsetY = 0; // Initial canvas position offset
+        let scale = 1; // Initial zoom scale
+        let isDragging = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
+
         document.getElementById("generateButton").addEventListener("click", generatePattern);
 
+        let intervalId = null;
+
+        // Adjusts the value and immediately updates the pattern
+        function adjustValue(id, delta) {
+            const input = document.getElementById(id);
+            input.value = parseFloat(input.value) + delta;
+            generatePattern();
+        }
+
+        // Start continuous updating when the mouse is down
+        function startAdjusting(id, delta) {
+            adjustValue(id, delta);  // Adjust the value immediately when button is pressed
+
+            intervalId = setInterval(() => adjustValue(id, delta), 100);  // Update every 100ms while held down
+        }
+
+        // Stop the adjustment when the mouse is released or leaves the button area
+        function stopAdjusting() {
+            clearInterval(intervalId);
+        }
+
+        // Add event listeners to the + and - buttons
+        document.querySelectorAll('.control-group button').forEach(button => {
+            const id = button.getAttribute('data-id');
+            const delta = button.textContent === '+' ? 1 : -1;
+
+            button.addEventListener('mousedown', () => startAdjusting(id, delta));
+            button.addEventListener('mouseup', stopAdjusting);
+            button.addEventListener('mouseleave', stopAdjusting);
+        });
+
+        // Stop the adjustment when mouse is released anywhere
+        document.addEventListener('mouseup', stopAdjusting);
+
+        
         function generatePattern() {
+            const m1centerx = parseFloat(document.getElementById("m1centerx").value);
+            const m1centery = parseFloat(document.getElementById("m1centery").value);
             const M1Period = parseFloat(document.getElementById("M1Period").value);
+            const m2centerx = parseFloat(document.getElementById("m2centerx").value);
+            const m2centery = parseFloat(document.getElementById("m2centery").value);
             const M2Period = parseFloat(document.getElementById("M2Period").value);
+            const m3centerx = parseFloat(document.getElementById("m3centerx").value);
+            const m3centery = parseFloat(document.getElementById("m3centery").value);
             const M3Period = parseFloat(document.getElementById("M3Period").value);
+            const Iterations = parseFloat(document.getElementById("Iterations").value);
             const aLength = parseFloat(document.getElementById("aLength").value);
             const bLength = parseFloat(document.getElementById("bLength").value);
             const cLength = parseFloat(document.getElementById("cLength").value);
-            const M2Length = parseFloat(document.getElementById("M2Length").value);
+            const dLength = parseFloat(document.getElementById("dLength").value);
             
             // Clear canvas
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -70,45 +205,99 @@
             let XPointList = [];
             let YPointList = [];
             let t = 0;
-            let iterations = 100; // You can adjust iterations for smoother patterns
 
             // Periodic motors' calculations and drawing
-            for (let i = 0; i < iterations; i++) {
+            for (let i = 0; i < Iterations; i++) {
+                //Dim theta2 As Double = 2 * PI * (t / period1)
                 const theta2 = 2 * Math.PI * (t / M1Period);
-                const m1x = aLength * Math.cos(theta2);
-                const m1y = aLength * Math.sin(theta2);
 
-                const m2x = -M2Length * Math.cos(2 * Math.PI * (t / M2Period));
-                const m2y = -M2Length * Math.sin(2 * Math.PI * (t / M2Period));
+                //dlength = Sqrt((m2center(0, 0) - m1center(0, 0)) ^ 2 + (m2center(0, 1) - m1center(0, 1)) ^ 2) 'distance between motors
+                const mdist = Math.sqrt(Math.pow(m2centerx - m1centerx, 2) + Math.pow(m2centery - m1centery, 2));
 
-                const dlength = Math.sqrt(Math.pow(m2x - m1x, 2) + Math.pow(m2y - m1y, 2));
-                const k1 = dlength / aLength;
-                const k2 = dlength / cLength;
-                const k3 = (Math.pow(aLength, 2) + Math.pow(cLength, 2) + Math.pow(dlength, 2) - Math.pow(bLength, 2)) / (2 * aLength * cLength);
+                //k1 = dlength / alength
+                //k2 = dlength / clength
+                //k3 = ((alength ^ 2) + (clength ^ 2) + (dlength ^ 2) - (blength ^ 2)) / (2 * alength * clength)
+                const k1 = mdist / aLength;
+                const k2 = mdist / cLength;
+                const k3 = (Math.pow(aLength, 2) + Math.pow(cLength, 2) + Math.pow(mdist, 2) - Math.pow(bLength, 2)) / (2 * aLength * cLength);
+                
+                //calculate the motor positions
+                //m1x = alength * Cos(theta2) + m1center(0, 0)
+                const m1x = aLength * Math.cos(theta2) + m1centerx;
+                //m1y = alength * Sin(theta2) + m1center(0, 1)
+                const m1y = aLength * Math.sin(theta2) + m1centery;
+                //m2x = -radius2 * Cos(2 * PI * (t / period2)) + m2center(0, 0)
+                const m2x = -dLength * Math.cos(2 * Math.PI * (t / M2Period)) + m2centerx;
+                //m2y = -radius2 * Sin(2 * PI * (t / period2)) + m2center(0, 1)
+                const m2y = -dLength * Math.sin(2 * Math.PI * (t / M2Period)) + m2centery;
+
 
                 // Calculate linkage
+                //Dim Cterm As Double = k1 - (k2 + 1) * Cos(theta2) + k3
+                //Dim Bterm As Double = -2 * Sin(theta2)
+                //Dim Aterm As Double = Cos(theta2) - k1 - k2 * Cos(theta2) + k3
                 const Cterm = k1 - (k2 + 1) * Math.cos(theta2) + k3;
                 const Bterm = -2 * Math.sin(theta2);
                 const Aterm = Math.cos(theta2) - k1 - k2 * Math.cos(theta2) + k3;
+
+                //Dim Theta4 As Double = 2 * Atan(-Bterm - Sqrt(Bterm ^ 2 - 4 * Aterm * Cterm)) + PI / 4
+                //xlink = clength * Cos(Theta4) + m2x
+                //ylink = clength * Sin(Theta4) + m2y
                 const Theta4 = 2 * Math.atan(-Bterm - Math.sqrt(Math.pow(Bterm, 2) - 4 * Aterm * Cterm)) + Math.PI / 4;
                 const xlink = cLength * Math.cos(Theta4) + m2x;
                 const ylink = cLength * Math.sin(Theta4) + m2y;
 
+                //Dim m3radius As Double = Sqrt((xlink - m3center(0, 0)) ^ 2 + (ylink - m3center(0, 1)) ^ 2) 'find the radius of the wheel center to the linkage
+                const m3radius = Math.sqrt(Math.pow(xlink - m3centerx, 2) + Math.pow(ylink - m3centery, 2)); //find the radius of the wheel center to the linkage
+                //Dim wheelangle As Double = Asin((ylink - m3center(0, 1)) / m3radius)
+                const wheelangle = Math.asin((ylink - m3centery) / m3radius);
+                //Dim wheelRotated As Double = wheelangle + (t / period3) * 2 * PI
+                const wheelRotated = wheelangle + (t / M3Period) * 2 * Math.PI;
+
+                //xpen = m3radius * Cos(wheelRotated) + m3center(0, 0)
+                const xpen = m3radius * Math.cos(wheelRotated) + m3centerx;
+                //ypen = m3radius * Sin(wheelRotated) + m3center(0, 1)
+                const ypen = m3radius * Math.sin(wheelRotated) + m3centery;
+
                 // Append points for SVG generation
-                XPointList.push(xlink);
-                YPointList.push(ylink);
+                XPointList.push(xpen);
+                YPointList.push(ypen);
                 
-                t += 0.01; // Time step
+                t += 2; // Time step
             }
+
+            // Calculate bounds
+            const minX = Math.min(...XPointList);
+            const maxX = Math.max(...XPointList);
+            const minY = Math.min(...YPointList);
+            const maxY = Math.max(...YPointList);
+
+            // Calculate scale and offset to fit the pattern in the canvas
+            const patternWidth = maxX - minX;
+            const patternHeight = maxY - minY;
+            const canvasWidth = canvas.width;
+            const canvasHeight = canvas.height;
+            const scaleX = canvasWidth / patternWidth;
+            const scaleY = canvasHeight / patternHeight;
+            scale = Math.min(scaleX, scaleY) * 0.9; // Scale down slightly to add padding
+
+            // Calculate offsets to center the pattern
+            offsetX = (canvasWidth - patternWidth * scale) / 2 - minX * scale;
+            offsetY = (canvasHeight - patternHeight * scale) / 2 - minY * scale;
 
             // Draw pattern on canvas
             ctx.beginPath();
-            ctx.moveTo(XPointList[0] + canvas.width / 2, YPointList[0] + canvas.height / 2);
+            ctx.moveTo(XPointList[0] * scale + offsetX, YPointList[0] * scale + offsetY);
             for (let i = 1; i < XPointList.length; i++) {
-                ctx.lineTo(XPointList[i] + canvas.width / 2, YPointList[i] + canvas.height / 2);
+                ctx.lineTo(XPointList[i] * scale + offsetX, YPointList[i] * scale + offsetY);
             }
             ctx.stroke();
-        }
+
+            // Display the point list data on the page
+            //const pointListDiv = document.getElementById("pointList");
+            //pointListDiv.innerHTML = "<h3>Point List:</h3>";
+            //pointListDiv.innerHTML += XPointList.map((x, index) => `(${x.toFixed(2)}, ${YPointList[index].toFixed(2)})`).join("<br>");
+            }
 
         document.getElementById("saveButton").addEventListener("click", saveSVG);
 
@@ -116,7 +305,7 @@
             let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="500" height="500" viewBox="0 0 500 500">`;
             svgContent += "<path d='M ";
             for (let i = 0; i < XPointList.length; i++) {
-                svgContent += `${XPointList[i] + 250},${YPointList[i] + 250} `;
+                svgContent += `${XPointList[i] * scale + 250},${YPointList[i] * scale + 250} `;
             }
             svgContent += "' fill='none' stroke='black' stroke-width='0.5'/>";
             svgContent += "</svg>";
@@ -129,6 +318,42 @@
             a.click();
             URL.revokeObjectURL(url);
         }
+
+        // Zoom handling
+        canvas.addEventListener('wheel', function(e) {
+            if (e.deltaY < 0) {
+                scale *= 1.1; // Zoom in
+            } else {
+                scale /= 1.1; // Zoom out
+            }
+            generatePattern(); // Redraw pattern with updated scale
+        });
+
+        // Drag handling
+        canvas.addEventListener('mousedown', function(e) {
+            isDragging = true;
+            dragStartX = e.offsetX - offsetX;
+            dragStartY = e.offsetY - offsetY;
+            canvas.style.cursor = 'grabbing';
+        });
+
+        canvas.addEventListener('mousemove', function(e) {
+            if (isDragging) {
+                offsetX = e.offsetX - dragStartX;
+                offsetY = e.offsetY - dragStartY;
+                generatePattern(); // Redraw pattern with updated offset
+            }
+        });
+
+        canvas.addEventListener('mouseup', function() {
+            isDragging = false;
+            canvas.style.cursor = 'grab';
+        });
+
+        canvas.addEventListener('mouseout', function() {
+            isDragging = false;
+            canvas.style.cursor = 'grab';
+        });
     </script>
 </body>
 </html>
