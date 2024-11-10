@@ -210,8 +210,13 @@
         // Stop the adjustment when mouse is released anywhere
         document.addEventListener('mouseup', stopAdjusting);
 
-        
         function generatePattern() {
+            const { XPointList, YPointList } = generatePatternPoints();
+            plotPatternToCanvas(XPointList, YPointList);
+        }
+
+        // Function to generate the Guilloche pattern and return the points
+        function generatePatternPoints() {
             const m1centerx = parseFloat(document.getElementById("m1centerx").value);
             const m1centery = parseFloat(document.getElementById("m1centery").value);
             const M1Period = parseFloat(document.getElementById("M1Period").value);
@@ -236,63 +241,52 @@
 
             // Periodic motors' calculations and drawing
             for (let i = 0; i < Iterations; i++) {
-                //Dim theta2 As Double = 2 * PI * (t / period1)
+                
                 const theta2 = 2 * Math.PI * (t / M1Period);
 
-                //dlength = Sqrt((m2center(0, 0) - m1center(0, 0)) ^ 2 + (m2center(0, 1) - m1center(0, 1)) ^ 2) 'distance between motors
                 const mdist = Math.sqrt(Math.pow(m2centerx - m1centerx, 2) + Math.pow(m2centery - m1centery, 2));
 
-                //k1 = dlength / alength
-                //k2 = dlength / clength
-                //k3 = ((alength ^ 2) + (clength ^ 2) + (dlength ^ 2) - (blength ^ 2)) / (2 * alength * clength)
                 const k1 = mdist / aLength;
                 const k2 = mdist / cLength;
                 const k3 = (Math.pow(aLength, 2) + Math.pow(cLength, 2) + Math.pow(mdist, 2) - Math.pow(bLength, 2)) / (2 * aLength * cLength);
                 
                 //calculate the motor positions
-                //m1x = alength * Cos(theta2) + m1center(0, 0)
                 const m1x = aLength * Math.cos(theta2) + m1centerx;
-                //m1y = alength * Sin(theta2) + m1center(0, 1)
                 const m1y = aLength * Math.sin(theta2) + m1centery;
-                //m2x = -radius2 * Cos(2 * PI * (t / period2)) + m2center(0, 0)
                 const m2x = -dLength * Math.cos(2 * Math.PI * (t / M2Period)) + m2centerx;
-                //m2y = -radius2 * Sin(2 * PI * (t / period2)) + m2center(0, 1)
                 const m2y = -dLength * Math.sin(2 * Math.PI * (t / M2Period)) + m2centery;
 
 
                 // Calculate linkage
-                //Dim Cterm As Double = k1 - (k2 + 1) * Cos(theta2) + k3
-                //Dim Bterm As Double = -2 * Sin(theta2)
-                //Dim Aterm As Double = Cos(theta2) - k1 - k2 * Cos(theta2) + k3
                 const Cterm = k1 - (k2 + 1) * Math.cos(theta2) + k3;
                 const Bterm = -2 * Math.sin(theta2);
                 const Aterm = Math.cos(theta2) - k1 - k2 * Math.cos(theta2) + k3;
 
-                //Dim Theta4 As Double = 2 * Atan(-Bterm - Sqrt(Bterm ^ 2 - 4 * Aterm * Cterm)) + PI / 4
-                //xlink = clength * Cos(Theta4) + m2x
-                //ylink = clength * Sin(Theta4) + m2y
                 const Theta4 = 2 * Math.atan(-Bterm - Math.sqrt(Math.pow(Bterm, 2) - 4 * Aterm * Cterm)) + Math.PI / 4;
                 const xlink = cLength * Math.cos(Theta4) + m2x;
                 const ylink = cLength * Math.sin(Theta4) + m2y;
 
-                //Dim m3radius As Double = Sqrt((xlink - m3center(0, 0)) ^ 2 + (ylink - m3center(0, 1)) ^ 2) 'find the radius of the wheel center to the linkage
-                const m3radius = Math.sqrt(Math.pow(xlink - m3centerx, 2) + Math.pow(ylink - m3centery, 2)); //find the radius of the wheel center to the linkage
-                //Dim wheelangle As Double = Asin((ylink - m3center(0, 1)) / m3radius)
+                //find the radius of the wheel center to the linkage
+                const m3radius = Math.sqrt(Math.pow(xlink - m3centerx, 2) + Math.pow(ylink - m3centery, 2)); 
                 const wheelangle = Math.asin((ylink - m3centery) / m3radius);
-                //Dim wheelRotated As Double = wheelangle + (t / period3) * 2 * PI
                 const wheelRotated = wheelangle + (t / M3Period) * 2 * Math.PI;
 
-                //xpen = m3radius * Cos(wheelRotated) + m3center(0, 0)
                 const xpen = m3radius * Math.cos(wheelRotated) + m3centerx;
-                //ypen = m3radius * Sin(wheelRotated) + m3center(0, 1)
                 const ypen = m3radius * Math.sin(wheelRotated) + m3centery;
 
-                // Append points for SVG generation
+                // Append points for drawing
                 XPointList.push(xpen);
                 YPointList.push(ypen);
                 
                 t += 2; // Time step
             }
+            return { XPointList, YPointList };
+        }
+
+        // Function to plot the Guilloche pattern points on the canvas
+        function plotPatternToCanvas(XPointList, YPointList) {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             // Calculate bounds
             const minX = Math.min(...XPointList);
@@ -307,45 +301,91 @@
             const canvasHeight = canvas.height;
             const scaleX = canvasWidth / patternWidth;
             const scaleY = canvasHeight / patternHeight;
-            scale = Math.min(scaleX, scaleY) * 0.9; // Scale down slightly to add padding
+            const scale = Math.min(scaleX, scaleY) * 0.9; // Slight padding
 
-            // Calculate offsets to center the pattern
-            offsetX = (canvasWidth - patternWidth * scale) / 2 - minX * scale;
-            offsetY = (canvasHeight - patternHeight * scale) / 2 - minY * scale;
+            const offsetX = (canvasWidth - patternWidth * scale) / 2 - minX * scale;
+            const offsetY = (canvasHeight - patternHeight * scale) / 2 - minY * scale;
 
-            // Draw pattern on canvas
+            // Draw the pattern on canvas
             ctx.beginPath();
             ctx.moveTo(XPointList[0] * scale + offsetX, YPointList[0] * scale + offsetY);
             for (let i = 1; i < XPointList.length; i++) {
                 ctx.lineTo(XPointList[i] * scale + offsetX, YPointList[i] * scale + offsetY);
             }
             ctx.stroke();
+        }
 
-            // Display the point list data on the page
-            //const pointListDiv = document.getElementById("pointList");
-            //pointListDiv.innerHTML = "<h3>Point List:</h3>";
-            //pointListDiv.innerHTML += XPointList.map((x, index) => `(${x.toFixed(2)}, ${YPointList[index].toFixed(2)})`).join("<br>");
-            }
+        // Function to get all input values (parameters) from the controls
+        function getParameters() {
+            const parameters = {};
+            const inputs = document.querySelectorAll('.controls input');
+            inputs.forEach(input => {
+                parameters[input.id] = input.value;
+            });
+            return parameters;
+        }
 
-        document.getElementById("saveButton").addEventListener("click", saveSVG);
+        // Function to normalize and generate SVG path from points
+        function generateSVGContent(parameters) {
+            const { XPointList, YPointList } = generatePatternPoints();
+            const svgWidth = 800; // Adjust to match your canvas width
+            const svgHeight = 600; // Adjust to match your canvas height
 
-        function saveSVG() {
-            let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="500" height="500" viewBox="0 0 500 500">`;
-            svgContent += "<path d='M ";
-            for (let i = 0; i < XPointList.length; i++) {
-                svgContent += `${XPointList[i] * scale + 250},${YPointList[i] * scale + 250} `;
-            }
-            svgContent += "' fill='none' stroke='black' stroke-width='0.5'/>";
-            svgContent += "</svg>";
+            // Normalization based on minimum x and y values
+            const xmin = Math.min(...XPointList);
+            const ymin = Math.min(...YPointList);
+            const shiftx = -xmin;
+            const shifty = -ymin;
             
-            const blob = new Blob([svgContent], {type: 'image/svg+xml'});
+            // Apply the normalization shift to all points
+            const normalizedXPoints = XPointList.map(x => x + shiftx);
+            const normalizedYPoints = YPointList.map(y => y + shifty);
+
+            // SVG content start
+            let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 ${svgWidth} ${svgHeight}" preserveAspectRatio="xMidYMid meet">\n`;
+
+
+            // Metadata comments for parameters
+            svgContent += `<!-- Parameters used to generate this file\n`;
+            for (const [key, value] of Object.entries(parameters)) {
+                svgContent += `<${key}="${value}" />\n`;
+            }
+            svgContent += `-->\n`;
+
+            // Begin the path data for SVG with "M" to start path and "L" to draw lines
+            svgContent += `<path d="M ${normalizedXPoints[0]} ${normalizedYPoints[0]} `;
+            for (let i = 1; i < normalizedXPoints.length; i++) {
+                svgContent += `L ${normalizedXPoints[i].toFixed(2)} ${normalizedYPoints[i].toFixed(2)} `;
+            }
+            svgContent += `z" fill="none" stroke="black" stroke-width="0.2"/>\n`;
+
+            // Close SVG
+            svgContent += `</svg>`;
+            
+            return svgContent;
+        }
+
+        // Function to save the SVG file
+        function saveSVG() {
+            const parameters = getParameters(); // Get current parameter values
+            const svgContent = generateSVGContent(parameters); // Generate SVG content with metadata
+
+            // Create a blob from the SVG content and download it as a file
+            const blob = new Blob([svgContent], { type: 'image/svg+xml' });
             const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = "guilloche_pattern.svg";
-            a.click();
+
+            // Create a temporary link and trigger the download
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'guilloche_pattern.svg';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
             URL.revokeObjectURL(url);
         }
+
+        // Attach saveSVG to the save button
+        document.getElementById('saveButton').addEventListener('click', saveSVG);
 
         // Zoom handling
         canvas.addEventListener('wheel', function(e) {
