@@ -325,25 +325,36 @@
             return parameters;
         }
 
-        // Function to normalize and generate SVG path from points
         function generateSVGContent(parameters) {
             const { XPointList, YPointList } = generatePatternPoints();
-            const svgWidth = 800; // Adjust to match your canvas width
-            const svgHeight = 600; // Adjust to match your canvas height
+            const svgWidth = 1920; // SVG viewBox width
+            const svgHeight = 1080; // SVG viewBox height
 
-            // Normalization based on minimum x and y values
+            // Calculate normalization shifts
             const xmin = Math.min(...XPointList);
             const ymin = Math.min(...YPointList);
             const shiftx = -xmin;
             const shifty = -ymin;
-            
-            // Apply the normalization shift to all points
-            const normalizedXPoints = XPointList.map(x => x + shiftx);
-            const normalizedYPoints = YPointList.map(y => y + shifty);
+
+            // Apply shifts
+            const shiftedXPoints = XPointList.map(x => x + shiftx);
+            const shiftedYPoints = YPointList.map(y => y + shifty);
+
+            // Calculate pattern width and height after shifting
+            const patternWidth = Math.max(...shiftedXPoints);
+            const patternHeight = Math.max(...shiftedYPoints);
+
+            // Calculate scaling factors to fit the SVG viewBox
+            const scaleX = svgWidth / patternWidth;
+            const scaleY = svgHeight / patternHeight;
+            const scale = Math.min(scaleX, scaleY); // To maintain aspect ratio
+
+            // Scale points to fit within the SVG viewBox dimensions
+            const scaledXPoints = shiftedXPoints.map(x => x * scale);
+            const scaledYPoints = shiftedYPoints.map(y => y * scale);
 
             // SVG content start
             let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 ${svgWidth} ${svgHeight}" preserveAspectRatio="xMidYMid meet">\n`;
-
 
             // Metadata comments for parameters
             svgContent += `<!-- Parameters used to generate this file\n`;
@@ -352,18 +363,19 @@
             }
             svgContent += `-->\n`;
 
-            // Begin the path data for SVG with "M" to start path and "L" to draw lines
-            svgContent += `<path d="M ${normalizedXPoints[0]} ${normalizedYPoints[0]} `;
-            for (let i = 1; i < normalizedXPoints.length; i++) {
-                svgContent += `L ${normalizedXPoints[i].toFixed(2)} ${normalizedYPoints[i].toFixed(2)} `;
+            // Begin the path data with normalized and scaled points
+            svgContent += `<path d="M ${scaledXPoints[0]} ${scaledYPoints[0]} `;
+            for (let i = 1; i < scaledXPoints.length; i++) {
+                svgContent += `L ${scaledXPoints[i].toFixed(2)} ${scaledYPoints[i].toFixed(2)} `;
             }
             svgContent += `z" fill="none" stroke="black" stroke-width="0.2"/>\n`;
 
             // Close SVG
             svgContent += `</svg>`;
-            
+
             return svgContent;
         }
+
 
         // Function to save the SVG file
         function saveSVG() {
