@@ -63,9 +63,10 @@
     }
 
     #svgContainer {
-        flex: 1;
-        width: 600px;  /* Set a specific width */
-        height: 600px; /* Set a specific height */
+        flex: 0 0 600px;
+        width: 600px;
+        height: 600px;
+        border: 1px solid black;
     }
 
     #svgContainer svg {
@@ -167,8 +168,15 @@
                 <button data-id="dLength" data-delta="-1">-</button>
             </div>
         
-            <button id="generateButton" onclick="generatePattern()">Generate Pattern</button>
-            <button id="saveButton">Save SVG</button>
+            <div class="control-group">
+                <button id="generateButton">Generate Pattern</button>
+            </div>
+
+            <div class="control-group">
+                <button id="saveButton">Save SVG</button>
+                <button id="loadButton">Load SVG</button>
+                <input type="file" id="fileInput" accept=".svg" style="display: none;">
+            </div>
         </div>
     
         <!-- Placeholder for dynamically generated SVG -->
@@ -183,6 +191,12 @@
         let isDragging = false;
         let dragStartX = 0;
         let dragStartY = 0;
+
+        // Add these as global variables at the start of the script section
+        let globalScale = 1;
+        let globalShiftX = 0;
+        let globalShiftY = 0;
+        let isFirstRender = true;
 
         document.getElementById("generateButton").addEventListener("click", generatePattern);
 
@@ -243,9 +257,10 @@
         });
 
         function generatePattern() {
-            parameters = getParameters()
-            const { XPointList, YPointList } = generatePatternPoints(parameters);
-            displayPatternAsSVG(parameters)
+            // Clear the isFirstRender flag at the start
+            isFirstRender = true;
+            parameters = getParameters();
+            displayPatternAsSVG(parameters);
         }
 
         // Add this after the generatePattern function
@@ -323,38 +338,6 @@
             return { XPointList, YPointList };
         }
 
-        // Function to plot the Guilloche pattern points on the canvas
-        function plotPatternToCanvas(XPointList, YPointList) {
-            // Clear canvas
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // Calculate bounds
-            const minX = Math.min(...XPointList);
-            const maxX = Math.max(...XPointList);
-            const minY = Math.min(...YPointList);
-            const maxY = Math.max(...YPointList);
-
-            // Calculate scale and offset to fit the pattern in the canvas
-            const patternWidth = maxX - minX;
-            const patternHeight = maxY - minY;
-            const canvasWidth = canvas.width;
-            const canvasHeight = canvas.height;
-            const scaleX = canvasWidth / patternWidth;
-            const scaleY = canvasHeight / patternHeight;
-            const scale = Math.min(scaleX, scaleY) * 0.9; // Slight padding
-
-            const offsetX = (canvasWidth - patternWidth * scale) / 2 - minX * scale;
-            const offsetY = (canvasHeight - patternHeight * scale) / 2 - minY * scale;
-
-            // Draw the pattern on canvas
-            ctx.beginPath();
-            ctx.moveTo(XPointList[0] * scale + offsetX, YPointList[0] * scale + offsetY);
-            for (let i = 1; i < XPointList.length; i++) {
-                ctx.lineTo(XPointList[i] * scale + offsetX, YPointList[i] * scale + offsetY);
-            }
-            ctx.stroke();
-        }
-
         // Function to get all input values (parameters) from the controls
         function getParameters() {
             const parameters = {};
@@ -367,33 +350,37 @@
 
         function generateSVGContent(parameters) {
             const { XPointList, YPointList } = generatePatternPoints(parameters);
-            const svgWidth = 800;  // Increased SVG viewBox width
-            const svgHeight = 800; // Increased SVG viewBox height
+            const svgWidth = 600;  // Match the container size
+            const svgHeight = 600; // Match the container size
 
-            // Calculate normalization shifts
-            const xmin = Math.min(...XPointList);
-            const ymin = Math.min(...YPointList);
-            const shiftx = -xmin;
-            const shifty = -ymin;
+            if (isFirstRender) {
+                // Calculate initial normalization values
+                const xmin = Math.min(...XPointList);
+                const xmax = Math.max(...XPointList);
+                const ymin = Math.min(...YPointList);
+                const ymax = Math.max(...YPointList);
 
-            // Apply shifts
-            const shiftedXPoints = XPointList.map(x => x + shiftx);
-            const shiftedYPoints = YPointList.map(y => y + shifty);
+                // Calculate pattern dimensions
+                const patternWidth = xmax - xmin;
+                const patternHeight = ymax - ymin;
 
-            // Calculate pattern width and height after shifting
-            const patternWidth = Math.max(...shiftedXPoints);
-            const patternHeight = Math.max(...shiftedYPoints);
+                // Calculate scaling factors to fit the SVG viewBox
+                const scaleX = (svgWidth * 0.9) / patternWidth;  // Leave 10% margin
+                const scaleY = (svgHeight * 0.9) / patternHeight; // Leave 10% margin
+                globalScale = Math.min(scaleX, scaleY); // To maintain aspect ratio
 
-            // Calculate scaling factors to fit the SVG viewBox
-            const scaleX = svgWidth / patternWidth;
-            const scaleY = svgHeight / patternHeight;
-            const scale = Math.min(scaleX, scaleY); // To maintain aspect ratio
+                // Calculate shifts to center the pattern
+                globalShiftX = (svgWidth / globalScale - patternWidth) / 2 - xmin;
+                globalShiftY = (svgHeight / globalScale - patternHeight) / 2 - ymin;
 
-            // Scale points to fit within the SVG viewBox dimensions
-            const scaledXPoints = shiftedXPoints.map(x => x * scale);
-            const scaledYPoints = shiftedYPoints.map(y => y * scale);
+                isFirstRender = false;
+            }
 
-            // SVG content start
+            // Apply the stored transformations
+            const transformedXPoints = XPointList.map(x => (x + globalShiftX) * globalScale);
+            const transformedYPoints = YPointList.map(y => (y + globalShiftY) * globalScale);
+
+            // Generate SVG content
             let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 ${svgWidth} ${svgHeight}" preserveAspectRatio="xMidYMid meet">\n`;
 
             // Metadata comments for parameters
@@ -403,19 +390,16 @@
             }
             svgContent += `-->\n`;
 
-            // Begin the path data with normalized and scaled points
-            svgContent += `<path d="M ${scaledXPoints[0]} ${scaledYPoints[0]} `;
-            for (let i = 1; i < scaledXPoints.length; i++) {
-                svgContent += `L ${scaledXPoints[i].toFixed(2)} ${scaledYPoints[i].toFixed(2)} `;
+            // Create the path with transformed points
+            svgContent += `<path d="M ${transformedXPoints[0]} ${transformedYPoints[0]} `;
+            for (let i = 1; i < transformedXPoints.length; i++) {
+                svgContent += `L ${transformedXPoints[i].toFixed(2)} ${transformedYPoints[i].toFixed(2)} `;
             }
             svgContent += `" fill="none" stroke="black" stroke-width="0.5"/>\n`;
 
-            // Close SVG
             svgContent += `</svg>`;
-
             return svgContent;
         }
-
 
         // Function to save the SVG file
         function saveSVG() {
@@ -439,14 +423,70 @@
         // Attach saveSVG to the save button
         document.getElementById('saveButton').addEventListener('click', saveSVG);
 
-
-        // Replace the existing generatePattern() call at the bottom with this:
+        //
         document.addEventListener('DOMContentLoaded', function() {
             console.log('DOM loaded, generating initial pattern');
             setTimeout(() => {
                 generatePattern();
             }, 100); // Small delay to ensure everything is ready
         });
+
+        // Add these functions to your script section
+        function loadSVG() {
+            document.getElementById('fileInput').click();
+        }
+
+        function parseSVGParameters(svgContent) {
+            // Extract the parameters from the comment
+            const paramMatch = svgContent.match(/<!-- Parameters used to generate this file\n([\s\S]*?)-->/);
+            if (!paramMatch) return null;
+
+            const paramText = paramMatch[1];
+            const params = {};
+            
+            // Parse each parameter line
+            const paramLines = paramText.split('\n');
+            paramLines.forEach(line => {
+                const match = line.match(/<(\w+)="([^"]+)"/);
+                if (match) {
+                    const [_, key, value] = match;
+                    params[key] = parseFloat(value);
+                }
+            });
+            
+            return params;
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const svgContent = e.target.result;
+                const params = parseSVGParameters(svgContent);
+                
+                if (params) {
+                    // Update all input fields with the loaded parameters
+                    Object.entries(params).forEach(([key, value]) => {
+                        const input = document.getElementById(key);
+                        if (input) {
+                            input.value = value;
+                        }
+                    });
+                    
+                    // Generate the pattern with the new parameters
+                    generatePattern();
+                } else {
+                    alert('Could not find valid parameters in the SVG file');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Add these event listeners after your existing ones
+        document.getElementById('loadButton').addEventListener('click', loadSVG);
+        document.getElementById('fileInput').addEventListener('change', handleFileSelect);
 
     </script>
 </body>
