@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Four-Bar Linkage Visualization</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+            margin: 20px;
+        }
+        .controls {
+            margin: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <label>Crank: <input type="number" id="crank" value="2" step="0.1"></label>
+        <label>Coupler: <input type="number" id="coupler" value="5" step="0.1"></label>
+        <label>Follower: <input type="number" id="follower" value="4" step="0.1"></label>
+        <label>Ground: <input type="number" id="ground" value="4" step="0.1"></label>
+        <button onclick="startAnimation()">Start</button>
+        <button onclick="stopAnimation()">Stop</button>
+        <div id="o2aDistance">O2A Distance: </div>
+        <div id="abDistance">AB Distance: </div>
+        <div id="o4bDistance">O4B Distance: </div>
+    </div>
+    <canvas id="linkageCanvas" width="800" height="400"></canvas>
+
+    <script>
+        function calculateFourBarLinkage(crank, coupler, follower, ground, theta2_deg) {
+            // See chapter 4 of Design of Machinery by Robert L. Norton for the derivation of the equations (Second edition - page 154)
+            // Convert input angle to radians
+            const theta2 = theta2_deg * Math.PI / 180;
+            
+            // Link lengths            
+            const a = crank;    // Crank length
+            const b = coupler;  // Coupler length
+            const c = follower; // Follower length
+            const d = ground;   // Ground link length
+            
+            // Calculate K1-K4 coefficients
+            const K1 = d/a;
+            const K2 = d/c;
+            const K3 = (a*a - b*b + c*c + d*d)/(2*a*c);
+            
+            // Calculate A, B, C coefficients for quadratic equation
+            const A = Math.cos(theta2) - K1 - K2*Math.cos(theta2) + K3;
+            const B = -2*Math.sin(theta2);
+            const C = K1 - (K2 + 1)*Math.cos(theta2) + K3;
+            
+            // Calculate theta4 using quadratic formula
+            const discriminant = B*B - 4*A*C;
+            if (discriminant < 0) {
+                return null; // Mechanism doesn't close at this angle
+            }
+            
+            // Calculate theta4
+            const theta4 = 2 * Math.atan((-B + Math.sqrt(discriminant))/(2*A));
+            
+            // Calculate point A (end of crank)
+            const Ax = a * Math.cos(theta2);
+            const Ay = a * Math.sin(theta2);
+
+            // set position of origin O2
+            const O2x = 0;
+            const O2y = 0;
+
+            // Calculate the position of the base of the follower O4
+            const O4x = O2x + d;
+            const O4y = O2y;
+            
+            // Calculate point B (end of follower)
+            const Bx = O4x + c * Math.cos(theta4);
+            const By = O4y + c * Math.sin(theta4);
+            
+            // Calculate theta3 using points A and B
+            const theta3 = Math.atan2(By - Ay, Bx - Ax);
+
+            // Calculate positions of all joints
+            const points = {
+                O2: {x: 0, y: 0},          // Ground pivot (left)
+                O4: {x: O4x, y: O4y},          // Ground pivot (right)
+                A: {x: Ax, y: Ay},         // Crank tip
+                B: {x: Bx, y: By}          // Follower tip
+            };
+            
+            return {
+                points: points,
+                };
+        }
+        
+        let animationId = null;
+        let angle = 0;
+        
+        function drawLinkage(ctx, points, scale = 40) {
+            if (!points || !points.points) return;  // Early return if points or points.points is null
+            
+            // Calculate distances and update displays with error checking
+            const abDistanceElement = document.getElementById('abDistance');
+            const o2aDistanceElement = document.getElementById('o2aDistance');
+            const o4bDistanceElement = document.getElementById('o4bDistance');
+
+            try {
+                // Calculate AB distance
+                const AB = Math.sqrt(
+                    (points.points.B.x - points.points.A.x)**2 + 
+                    (points.points.B.y - points.points.A.y)**2
+                );
+
+                // Safely update elements if they exist
+                if (abDistanceElement) {
+                    abDistanceElement.textContent = `AB Distance: ${AB.toFixed(3)}`;
+                }
+                if (o2aDistanceElement) {
+                    const O2A = Math.sqrt(
+                        (points.points.A.x - points.points.O2.x)**2 + 
+                        (points.points.A.y - points.points.O2.y)**2
+                    );
+                    o2aDistanceElement.textContent = `O2A Distance: ${O2A.toFixed(3)}`;
+                }
+                if (o4bDistanceElement) {
+                    const O4B = Math.sqrt(
+                        (points.points.B.x - points.points.O4.x)**2 + 
+                        (points.points.B.y - points.points.O4.y)**2
+                    );
+                    o4bDistanceElement.textContent = `O4B Distance: ${O4B.toFixed(3)}`;
+                }
+
+                // Update points reference for the rest of the function
+                points = points.points;
+                
+                // Move coordinate system to center of canvas
+                ctx.save();
+                ctx.translate(400, 200);
+                
+                // Clear canvas
+                ctx.clearRect(-400, -200, 800, 400);
+                
+                // Draw ground link
+                ctx.beginPath();
+                ctx.moveTo(points.O2.x * scale, points.O2.y * scale);
+                ctx.lineTo(points.O4.x * scale, points.O4.y * scale);
+                ctx.strokeStyle = 'black';
+                ctx.stroke();
+                
+                // Draw crank
+                ctx.beginPath();
+                ctx.moveTo(points.O2.x * scale, points.O2.y * scale);
+                ctx.lineTo(points.A.x * scale, points.A.y * scale);
+                ctx.strokeStyle = 'blue';
+                ctx.stroke();
+                
+                // Draw coupler
+                ctx.beginPath();
+                ctx.moveTo(points.A.x * scale, points.A.y * scale);
+                ctx.lineTo(points.B.x * scale, points.B.y * scale);
+                ctx.strokeStyle = 'red';
+                ctx.stroke();
+                
+                // Draw follower
+                ctx.beginPath();
+                ctx.moveTo(points.B.x * scale, points.B.y * scale);
+                ctx.lineTo(points.O4.x * scale, points.O4.y * scale);
+                ctx.strokeStyle = 'green';
+                ctx.stroke();
+                
+                // Draw joints
+                ctx.fillStyle = 'black';
+                const joints = [points.O2, points.O4, points.A, points.B];
+                joints.forEach(point => {
+                    ctx.beginPath();
+                    ctx.arc(point.x * scale, point.y * scale, 4, 0, 2 * Math.PI);
+                    ctx.fill();
+                });
+                
+                ctx.restore();
+            } catch (error) {
+                console.log("Error calculating distances:", error);
+                return;
+            }
+        }
+        
+        function animate() {
+            const canvas = document.getElementById('linkageCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            const crank = parseFloat(document.getElementById('crank').value);
+            const coupler = parseFloat(document.getElementById('coupler').value);
+            const follower = parseFloat(document.getElementById('follower').value);
+            const ground = parseFloat(document.getElementById('ground').value);
+            
+            const points = calculateFourBarLinkage(crank, coupler, follower, ground, angle);
+            drawLinkage(ctx, points);
+            
+            angle = (angle + 2) % 360;
+            animationId = requestAnimationFrame(animate);
+        }
+        
+        function startAnimation() {
+            if (!animationId) {
+                animate();
+            }
+        }
+        
+        function stopAnimation() {
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+        }
+    </script>
+</body>
+</html>

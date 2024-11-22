@@ -68,12 +68,26 @@
         width: 600px;
         height: 600px;
         border: 1px solid black;
+        overflow: hidden;
+        position: relative;
     }
 
     #svgContainer svg {
         width: 100%;
         height: 100%;
         background-color: white;
+        transition: transform 0.05s linear;
+        transform-origin: center;
+        position: absolute;
+        top: 0;
+        left: 0;
+    }
+
+    #motorCanvas {
+        border: 1px solid #ccc;
+        margin-top: 10px;
+        width: 300px;
+        height: 300px;
     }
 
 </style>
@@ -92,7 +106,7 @@
             </div>
             <div class="control-group">
                 <label for="m1centery">M1 center y:</label>
-                <input type="number" id="m1centery" value="600" step="1" />
+                <input type="number" id="m1centery" value="350" step="1" />
                 <button data-id="m1centery" data-delta="1">+</button>
                 <button data-id="m1centery" data-delta="-1">-</button>
             </div>
@@ -110,7 +124,7 @@
             </div>
             <div class="control-group">
                 <label for="m2centery">M2 center y:</label>
-                <input type="number" id="m2centery" value="600" step="1" />
+                <input type="number" id="m2centery" value="350" step="1" />
                 <button data-id="m2centery" data-delta="1">+</button>
                 <button data-id="m2centery" data-delta="-1">-</button>
             </div>
@@ -128,7 +142,7 @@
             </div>
             <div class="control-group">
                 <label for="m3centery">M3 center y:</label>
-                <input type="number" id="m3centery" value="260" step="1" />
+                <input type="number" id="m3centery" value="10" step="1" />
                 <button data-id="m3centery" data-delta="1">+</button>
                 <button data-id="m3centery" data-delta="-1">-</button>
             </div>
@@ -183,6 +197,8 @@
         <!-- Placeholder for dynamically generated SVG -->
         <div id="svgContainer"></div>
 
+        <canvas id="motorCanvas" width="300" height="300"></canvas>
+
     </div>
 
     <script>
@@ -198,6 +214,22 @@
         let globalShiftX = 0;
         let globalShiftY = 0;
         let isFirstRender = true;
+
+        // Add these as global variables at the start of your script
+        let motorCanvasOffsetX = 0;
+        let motorCanvasOffsetY = 0;
+        let motorCanvasScale = 1;
+        let isMotorCanvasDragging = false;
+        let motorCanvasDragStartX = 0;
+        let motorCanvasDragStartY = 0;
+
+        // Add these as global variables at the start of the script section
+        let svgOffsetX = 0;
+        let svgOffsetY = 0;
+        let svgScale = 1;
+        let isSvgDragging = false;
+        let svgDragStartX = 0;
+        let svgDragStartY = 0;
 
         document.getElementById("generateButton").addEventListener("click", generatePattern);
 
@@ -258,10 +290,10 @@
         });
 
         function generatePattern() {
-            // Clear the isFirstRender flag at the start
             isFirstRender = true;
             parameters = getParameters();
             displayPatternAsSVG(parameters);
+            drawMotorPositions(parameters);
         }
 
         // Add this after the generatePattern function
@@ -286,56 +318,220 @@
             // Replace canvas with SVG
             const svgContainer = document.getElementById("svgContainer");
             svgContainer.innerHTML = svgContent;
+            
+            // Apply current transform
+            updateSVGTransform();
         }
 
-        // Function to generate the Guilloche pattern and return the points
-        function generatePatternPoints(params) {
+        function calculatePoint(params, t) {
+            // Calculate angles of the two motors
+            const theta1 = 2 * Math.PI * (t / params.M1Period);
+            const theta2 = 2 * Math.PI * (t / params.M2Period);
 
+            // Distance between the two motors
+            const mdist = Math.sqrt(Math.pow(params.m2centerx - params.m1centerx, 2) + Math.pow(params.m2centery - params.m1centery, 2));
+
+            // Calculate positions of motor links
+            const m1x = params.aLength * Math.cos(theta1) + params.m1centerx;
+            const m1y = params.aLength * Math.sin(theta1) + params.m1centery;
+            const m2x = -params.dLength * Math.cos(theta2) + params.m2centerx;
+            const m2y = -params.dLength * Math.sin(theta2) + params.m2centery;
+
+            const k1 = mdist / params.aLength;
+            const k2 = mdist / params.cLength;
+            const k3 = (Math.pow(params.aLength, 2) + Math.pow(params.cLength, 2) + Math.pow(mdist, 2) - Math.pow(params.bLength, 2)) / (2 * params.aLength * params.cLength);
+            
+            // Calculate linkage
+            const Cterm = k1 - (k2 + 1) * Math.cos(theta1) + k3;
+            const Bterm = -2 * Math.sin(theta1);
+            const Aterm = Math.cos(theta1) - k1 - k2 * Math.cos(theta1) + k3;
+
+            const Theta4 = 2 * Math.atan(-Bterm - Math.sqrt(Math.pow(Bterm, 2) - 4 * Aterm * Cterm)) + Math.PI / 4;
+
+            const xlink = params.cLength * Math.cos(Theta4) + m2x;
+            const ylink = params.cLength * Math.sin(Theta4) + m2y;
+
+            // Find the radius of the wheel center to the linkage
+            const m3radius = Math.sqrt(Math.pow(xlink - params.m3centerx, 2) + Math.pow(ylink - params.m3centery, 2)); 
+            const wheelangle = Math.asin((ylink - params.m3centery) / m3radius);
+            const wheelRotated = wheelangle + (t / params.M3Period) * 2 * Math.PI;
+
+            return {
+                x: m3radius * Math.cos(wheelRotated) + params.m3centerx,
+                y: m3radius * Math.sin(wheelRotated) + params.m3centery,
+                m1: { x: m1x, y: m1y },
+                m2: { x: m2x, y: m2y },
+                link: { x: xlink, y: ylink }
+            };
+        }
+
+        function calculatePoint2(params, t) {
+            // Calculate angles of the two motors
+            const theta1 = 2 * Math.PI * (t / params.M1Period);
+            const theta2 = 2 * Math.PI * (t / params.M2Period);
+
+            //shift m1 and m2 moving m1 to the origin
+            const m1 = new Point(0, 0);
+            const m2 = new Point(params.m2centerx - params.m1centerx, params.m2centery - params.m1centery);
+            
+            // Calculate positions of motor links
+            m1link = new Point(params.aLength * Math.cos(theta1) + m1.x, params.aLength * Math.sin(theta1) + m1.y);
+            m2link = new Point(params.dLength * Math.cos(theta2) + m2.x,params.dLength * Math.sin(theta2) + m2.y)
+
+            // Distance between m1 and m2link
+            const mdist = Math.sqrt(Math.pow(m2link.x - m1.x, 2) + Math.pow(m2link.y - m1.y, 2));
+
+            //angle between the m1 and m2link
+            const mangle = Math.atan2(m2link.y - m1.y, m2link.x - m1.x);
+
+            // Rotate the two motor link points by the angle between the two motors - aligning the x axis between m1 and m2link
+            const m1linkRotated = rotate(m1link, m1, -mangle);
+            const m2linkRotated = rotate(m2link, m1, -mangle);
+
+            const theta1Rotated_test = theta1 - mangle;
+            const theta1Rotated = Math.atan2(m1linkRotated.y - m1.y, m1linkRotated.x - m1.x);
+
+            // Call calculateFourBarLinkage with the rotated coordinates
+            const linkageResult = calculateFourBarLinkage(
+                params.aLength,      // crank
+                params.bLength,      // coupler
+                params.cLength,      // follower
+                mdist,              // ground (distance between motor centers)
+                (theta1Rotated * 180 / Math.PI)  // convert angle to degrees
+            );
+
+            if (!linkageResult) {
+                console.error("Linkage failed to close");
+                return null;
+            }
+
+            // Copy result to link
+            link = new Point(
+                linkageResult.points.B.x, 
+                linkageResult.points.B.y
+            );
+
+            //test the length of the link is the same as the distance between m1 and m2link
+            const linkLength_error1 = Math.sqrt(Math.pow(link.x - m1linkRotated.x, 2) + Math.pow(link.y - m1linkRotated.y, 2))- params.bLength;
+            const linkLength_error2 = Math.sqrt(Math.pow(link.x - m2linkRotated.x, 2) + Math.pow(link.y - m2linkRotated.y, 2)) - params.cLength;
+
+            //un rotate the points
+            m1link = rotate(m1linkRotated, m1, mangle);
+            m2link = rotate(m2linkRotated, m1, mangle);
+            link = rotate(link, m1, mangle);
+
+            //shift the points back
+            m1link.x += params.m1centerx;
+            m1link.y += params.m1centery;
+            m2link.x += params.m1centerx;
+            m2link.y += params.m1centery;
+            link.x += params.m1centerx;
+            link.y += params.m1centery;
+
+            // Find the radius of the wheel center to the linkage
+            const m3 = new Point(params.m3centerx , params.m3centery);
+
+            const m3radius = Math.sqrt(Math.pow(link.x - m3.x, 2) + Math.pow(link.y - m3.y, 2)); 
+            const wheelangle = Math.asin((link.y - params.m3centery) / m3radius);
+            const wheelRotated = wheelangle + (t / params.M3Period) * 2 * Math.PI;
+            const penx = m3radius * Math.cos(wheelRotated) + params.m3centerx ;
+            const peny = m3radius * Math.sin(wheelRotated) + params.m3centery ;
+
+            return {
+                x: penx ,
+                y: peny ,
+                m1: { x: m1link.x, y: m1link.y },
+                m2: { x: m2link.x, y: m2link.y },
+                link: { x: link.x, y: link.y }
+            };
+        }
+
+        function calculateFourBarLinkage(crank, coupler, follower, ground, theta2_deg) {
+            // See chapter 4 of Design of Machinery by Robert L. Norton for the derivation of the equations (Second edition - page 154)
+            // Convert input angle to radians
+            const theta2 = theta2_deg * Math.PI / 180;
+            
+            // Link lengths            
+            const a = crank;    // Crank length
+            const b = coupler;  // Coupler length
+            const c = follower; // Follower length
+            const d = ground;   // Ground link length
+            
+            // Calculate K1-K4 coefficients
+            const K1 = d/a;
+            const K2 = d/c;
+            const K3 = (a*a - b*b + c*c + d*d)/(2*a*c);
+            
+            // Calculate A, B, C coefficients for quadratic equation
+            const A = Math.cos(theta2) - K1 - K2*Math.cos(theta2) + K3;
+            const B = -2*Math.sin(theta2);
+            const C = K1 - (K2 + 1)*Math.cos(theta2) + K3;
+            
+            // Calculate theta4 using quadratic formula
+            const discriminant = B*B - 4*A*C;
+            if (discriminant < 0) {
+                return null; // Mechanism doesn't close at this angle
+            }
+            
+            // Calculate theta4
+            const theta4 = 2 * Math.atan((-B + Math.sqrt(discriminant))/(2*A));
+            
+            // Calculate point A (end of crank)
+            const Ax = a * Math.cos(theta2);
+            const Ay = a * Math.sin(theta2);
+
+            // set position of origin O2
+            const O2x = 0;
+            const O2y = 0;
+
+            // Calculate the position of the base of the follower O4
+            const O4x = O2x + d;
+            const O4y = O2y;
+            
+            // Calculate point B (end of follower)
+            const Bx = O4x + c * Math.cos(theta4);
+            const By = O4y + c * Math.sin(theta4);
+            
+            // Calculate theta3 using points A and B
+            const theta3 = Math.atan2(By - Ay, Bx - Ax);
+
+            // Calculate positions of all joints
+            const points = {
+                O2: {x: 0, y: 0},          // Ground pivot (left)
+                O4: {x: O4x, y: O4y},      // Ground pivot (right)
+                A: {x: Ax, y: Ay},         // Crank tip
+                B: {x: Bx, y: By}          // Follower tip
+            };
+            
+            return {
+                points: points,
+                };
+        }
+
+        //define a point class
+        function Point(x, y) {
+            this.x = x;
+            this.y = y;
+        }
+
+        // Rotate a point p around a center point c by an angle a
+        function rotate(p, c, a) {
+            return {
+                x: c.x + (p.x - c.x) * Math.cos(a) - (p.y - c.y) * Math.sin(a),
+                y: c.y + (p.x - c.x) * Math.sin(a) + (p.y - c.y) * Math.cos(a)
+            };
+        }
+
+        function generatePatternPoints(params) {
             let XPointList = [];
             let YPointList = [];
-            let t = 0;
-
-            // Periodic motors' calculations and drawing
-            for (let i = 0; i < params.Iterations; i++) {
-                
-                const theta2 = 2 * Math.PI * (t / params.M1Period);
-
-                const mdist = Math.sqrt(Math.pow(params.m2centerx - params.m1centerx, 2) + Math.pow(params.m2centery - params.m1centery, 2));
-
-                const k1 = mdist / params.aLength;
-                const k2 = mdist / params.cLength;
-                const k3 = (Math.pow(params.aLength, 2) + Math.pow(params.cLength, 2) + Math.pow(mdist, 2) - Math.pow(params.bLength, 2)) / (2 * params.aLength * params.cLength);
-                
-                //calculate the motor positions
-                const m1x = params.aLength * Math.cos(theta2) + params.m1centerx;
-                const m1y = params.aLength * Math.sin(theta2) + params.m1centery;
-                const m2x = -params.dLength * Math.cos(2 * Math.PI * (t / params.M2Period)) + params.m2centerx;
-                const m2y = -params.dLength * Math.sin(2 * Math.PI * (t / params.M2Period)) + params.m2centery;
-
-
-                // Calculate linkage
-                const Cterm = k1 - (k2 + 1) * Math.cos(theta2) + k3;
-                const Bterm = -2 * Math.sin(theta2);
-                const Aterm = Math.cos(theta2) - k1 - k2 * Math.cos(theta2) + k3;
-
-                const Theta4 = 2 * Math.atan(-Bterm - Math.sqrt(Math.pow(Bterm, 2) - 4 * Aterm * Cterm)) + Math.PI / 4;
-                const xlink = params.cLength * Math.cos(Theta4) + m2x;
-                const ylink = params.cLength * Math.sin(Theta4) + m2y;
-
-                //find the radius of the wheel center to the linkage
-                const m3radius = Math.sqrt(Math.pow(xlink - params.m3centerx, 2) + Math.pow(ylink - params.m3centery, 2)); 
-                const wheelangle = Math.asin((ylink - params.m3centery) / m3radius);
-                const wheelRotated = wheelangle + (t / params.M3Period) * 2 * Math.PI;
-
-                const xpen = m3radius * Math.cos(wheelRotated) + params.m3centerx;
-                const ypen = m3radius * Math.sin(wheelRotated) + params.m3centery;
-
-                // Append points for drawing
-                XPointList.push(xpen);
-                YPointList.push(ypen);
-                
-                t += 1; // Time step
+            
+            for (let t = 0; t < params.Iterations; t++) {
+                const point = calculatePoint2(params, t);
+                XPointList.push(point.x);
+                YPointList.push(point.y);
             }
+            
             return { XPointList, YPointList };
         }
 
@@ -484,10 +680,238 @@
             };
             reader.readAsText(file);
         }
-
-        // Add these event listeners after your existing ones
+        
+        // Load SVG
         document.getElementById('loadButton').addEventListener('click', loadSVG);
         document.getElementById('fileInput').addEventListener('change', handleFileSelect);
+
+        // Add this function to handle the motor canvas interactions
+        function setupMotorCanvasControls() {
+            const canvas = document.getElementById('motorCanvas');
+            
+            // Mouse wheel for zooming
+            canvas.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                
+                // Get mouse position relative to canvas
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                
+                // Calculate zoom
+                const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+                
+                // Zoom around mouse position
+                motorCanvasOffsetX = mouseX - (mouseX - motorCanvasOffsetX) * zoomFactor;
+                motorCanvasOffsetY = mouseY - (mouseY - motorCanvasOffsetY) * zoomFactor;
+                motorCanvasScale *= zoomFactor;
+                
+                // Redraw
+                const parameters = getParameters();
+                drawMotorPositions(parameters);
+            });
+            
+            // Mouse down for panning
+            canvas.addEventListener('mousedown', (e) => {
+                isMotorCanvasDragging = true;
+                motorCanvasDragStartX = e.clientX - motorCanvasOffsetX;
+                motorCanvasDragStartY = e.clientY - motorCanvasOffsetY;
+            });
+            
+            // Mouse move for panning
+            canvas.addEventListener('mousemove', (e) => {
+                if (isMotorCanvasDragging) {
+                    motorCanvasOffsetX = e.clientX - motorCanvasDragStartX;
+                    motorCanvasOffsetY = e.clientY - motorCanvasDragStartY;
+                    
+                    // Redraw
+                    const parameters = getParameters();
+                    drawMotorPositions(parameters);
+                }
+            });
+            
+            // Mouse up to stop panning
+            canvas.addEventListener('mouseup', () => {
+                isMotorCanvasDragging = false;
+            });
+            
+            // Mouse leave to stop panning
+            canvas.addEventListener('mouseleave', () => {
+                isMotorCanvasDragging = false;
+            });
+        }
+
+        // Modify the drawMotorPositions function
+        function drawMotorPositions(parameters) {
+            const canvas = document.getElementById('motorCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Save the current context state
+            ctx.save();
+            
+            // Move origin to center of canvas and flip y-axis
+            ctx.translate(canvas.width/2 + motorCanvasOffsetX, canvas.height/2 + motorCanvasOffsetY);
+            ctx.scale(motorCanvasScale, -motorCanvasScale); // Negative scale for y to flip axis
+            
+            // Draw x and y axes
+            ctx.strokeStyle = '#ddd';
+            ctx.lineWidth = 1/motorCanvasScale; // Adjust line width for scaling
+            
+            // X-axis
+            ctx.beginPath();
+            ctx.moveTo(-canvas.width/2, 0);
+            ctx.lineTo(canvas.width/2, 0);
+            ctx.stroke();
+            
+            // Y-axis
+            ctx.beginPath();
+            ctx.moveTo(0, -canvas.height/2);
+            ctx.lineTo(0, canvas.height/2);
+            ctx.stroke();
+            
+            // Draw scale on axes
+            ctx.scale(1, -1); // Temporarily flip back for text
+            ctx.fillStyle = '#000';
+            ctx.font = `${10/motorCanvasScale}px Arial`;
+            
+            // X-axis labels
+            for (let i = -300; i <= 300; i += 50) {
+                ctx.fillText(i.toString(), i, 15/motorCanvasScale);
+            }
+            
+            // Y-axis labels
+            for (let i = -300; i <= 300; i += 50) {
+                if (i !== 0) { // Skip 0 to avoid overlap with x-axis
+                    ctx.fillText(i.toString(), 5/motorCanvasScale, -i);
+                }
+            }
+            
+            ctx.scale(1, -1); // Flip back for drawing points
+            
+            // Get the final position
+            const finalPoint = calculatePoint2(parameters, parameters.Iterations - 1);
+            
+            // Define points to plot
+            const points = [
+                { x: parameters.m1centerx, y: parameters.m1centery, label: 'M1', color: '#000' },
+                { x: parameters.m2centerx, y: parameters.m2centery, label: 'M2', color: '#000' },
+                { x: parameters.m3centerx, y: parameters.m3centery, label: 'M3', color: '#000' },
+                { x: finalPoint.m1.x, y: finalPoint.m1.y, label: 'M1p', color: '#f00' },
+                { x: finalPoint.m2.x, y: finalPoint.m2.y, label: 'M2p', color: '#00f' },
+                { x: finalPoint.link.x, y: finalPoint.link.y, label: 'Link', color: '#0a0' },
+                { x: finalPoint.x, y: finalPoint.y, label: 'Pen', color: '#f0f' }
+            ];
+            
+            // Draw connecting lines
+            ctx.strokeStyle = '#bbb';
+            ctx.lineWidth = 2/motorCanvasScale;
+            
+            ctx.beginPath();
+            ctx.moveTo(parameters.m1centerx, parameters.m1centery);
+            ctx.lineTo(finalPoint.m1.x, finalPoint.m1.y);
+            ctx.moveTo(parameters.m2centerx, parameters.m2centery);
+            ctx.lineTo(finalPoint.m2.x, finalPoint.m2.y);
+            ctx.moveTo(finalPoint.m2.x, finalPoint.m2.y);
+            ctx.lineTo(finalPoint.link.x, finalPoint.link.y);
+            ctx.moveTo(finalPoint.m1.x, finalPoint.m1.y);
+            ctx.lineTo(finalPoint.link.x, finalPoint.link.y);
+            ctx.stroke();
+            
+            // Draw points
+            points.forEach(point => {
+                ctx.strokeStyle = point.color;
+                ctx.fillStyle = point.color;
+                
+                // Draw cross
+                ctx.beginPath();
+                ctx.moveTo(point.x - 5/motorCanvasScale, point.y);
+                ctx.lineTo(point.x + 5/motorCanvasScale, point.y);
+                ctx.moveTo(point.x, point.y - 5/motorCanvasScale);
+                ctx.lineTo(point.x, point.y + 5/motorCanvasScale);
+                ctx.stroke();
+                
+                // Draw label
+                ctx.scale(1, -1); // Flip for text
+                ctx.font = `${12/motorCanvasScale}px Arial`;
+                ctx.fillText(point.label, point.x + 8/motorCanvasScale, -point.y - 8/motorCanvasScale);
+                ctx.scale(1, -1); // Flip back
+            });
+            
+            // Restore the context state
+            ctx.restore();
+        }
+
+        // Add this line to your initialization code (where you set up your other event listeners)
+        setupMotorCanvasControls();
+
+        // Add this function to handle the SVG container interactions
+        function setupSVGControls() {
+            const container = document.getElementById('svgContainer');
+            
+            // Mouse wheel for zooming
+            container.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                
+                // Get mouse position relative to container
+                const rect = container.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                
+                // Calculate zoom
+                const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+                
+                // Zoom around mouse position
+                svgOffsetX = mouseX - (mouseX - svgOffsetX) * zoomFactor;
+                svgOffsetY = mouseY - (mouseY - svgOffsetY) * zoomFactor;
+                svgScale *= zoomFactor;
+                
+                // Apply transformation to SVG
+                updateSVGTransform();
+            });
+            
+            // Mouse down for panning
+            container.addEventListener('mousedown', (e) => {
+                isSvgDragging = true;
+                svgDragStartX = e.clientX - svgOffsetX;
+                svgDragStartY = e.clientY - svgOffsetY;
+            });
+            
+            // Mouse move for panning
+            container.addEventListener('mousemove', (e) => {
+                if (isSvgDragging) {
+                    svgOffsetX = e.clientX - svgDragStartX;
+                    svgOffsetY = e.clientY - svgDragStartY;
+                    
+                    // Apply transformation
+                    updateSVGTransform();
+                }
+            });
+            
+            // Mouse up to stop panning
+            container.addEventListener('mouseup', () => {
+                isSvgDragging = false;
+            });
+            
+            // Mouse leave to stop panning
+            container.addEventListener('mouseleave', () => {
+                isSvgDragging = false;
+            });
+        }
+
+        // Function to update SVG transform
+        function updateSVGTransform() {
+            const svg = document.querySelector('#svgContainer svg');
+            if (svg) {
+                svg.style.transform = `translate(${svgOffsetX}px, ${svgOffsetY}px) scale(${svgScale})`;
+                svg.style.transformOrigin = 'center';
+            }
+        }
+
+        // Add this to your initialization code (where you set up your other event listeners)
+        setupSVGControls();
 
     </script>
 </body>
